@@ -1,0 +1,67 @@
+Language: Cpp
+BasedOnStyle: WebKit
+PointerAlignment: Left
+IndentWidth: 4
+MaxEmptyLinesToKeep: 2
+AllowShortIfStatementsOnASingleLine: true
+IndentCaseLabels: true
+AccessModifierOffset: -4
+BreakTemplateDeclarations: Yes
+AlignAfterOpenBracket: DontAlign
+AlignConsecutiveDeclarations: true
+BreakBeforeBraces: Custom
+ContinuationIndentWidth: 4
+ConstructorInitializerIndentWidth: 4
+PackConstructorInitializers: CurrentLine
+AlignConsecutiveAssignments: true
+AlignEscapedNewlines: Left
+AllowAllArgumentsOnNextLine: false
+EmptyLineBeforeAccessModifier: Always
+
+SpaceBeforeParens: ControlStatements
+SpaceInEmptyBlock: false
+SpacesBeforeTrailingComments: 2
+
+AllowShortBlocksOnASingleLine: Empty
+AllowShortCaseLabelsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: Empty
+AllowShortLoopsOnASingleLine: false
+
+AlignTrailingComments: true
+AlignArrayOfStructures: Right
+
+KeepEmptyLinesAtTheStartOfBlocks: false
+
+SpacesInParensOptions:
+  InEmptyParentheses: false
+
+BraceWrapping:
+  AfterClass: true
+  AfterControlStatement: false
+  AfterEnum: true
+  AfterFunction: true
+  AfterNamespace: true
+  AfterStruct: true
+  AfterUnion: true
+  BeforeCatch: false
+  BeforeElse: false
+  IndentBraces: false
+  BeforeLambdaBody: true
+Standard: Auto
+TabWidth: 4
+UseTab: Never
+ColumnLimit: 140
+SpaceAfterCStyleCast: false
+SpacesInSquareBrackets: false
+AlignOperands: DontAlign
+AllowAllParametersOfDeclarationOnNextLine: false
+SpaceBeforeAssignmentOperators: true
+SortIncludes: Never
+NamespaceIndentation: All
+IncludeCategories:
+  - Regex: '^"(.*\.h)"'
+    Priority: 2
+  - Regex: '^<.*>'
+    Priority: 3
+  - Regex: '^"(.*\.cpp|.*\.c|.*\.hpp|.*\.hxx)"'
+    Priority: 1

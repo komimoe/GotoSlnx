@@ -1,0 +1,49 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup CMake
+        uses: lukka/get-cmake@v3
+
+      - name: Configure
+        shell: pwsh
+        run: |
+          cmake -B build
+
+      - name: Build (Release)
+        shell: pwsh
+        run: |
+          cmake --build build --config Release
+
+      - name: Package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path dist -Force | Out-Null
+          $exe = Get-ChildItem -Path build -Recurse -Filter goto-slnx.exe | Select-Object -First 1
+          if (-not $exe) { throw "goto-slnx.exe not found" }
+          Copy-Item $exe.FullName dist\goto-slnx.exe
+          Compress-Archive -Path dist\* -DestinationPath dist\goto-slnx-windows.zip -Force
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: goto-slnx-windows
+          path: dist/goto-slnx-windows.zip
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/goto-slnx-windows.zip
+          generate_release_notes: true
