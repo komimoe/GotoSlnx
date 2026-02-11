@@ -273,6 +273,19 @@ namespace
         return path;
     }
 
+    std::string NormalizeGuidForSlnx(std::string_view guid)
+    {
+        std::string output;
+        output.reserve(guid.size());
+        for (unsigned char ch : guid) {
+            if (ch == '{' || ch == '}') {
+                continue;
+            }
+            output.push_back(static_cast<char>(std::tolower(ch)));
+        }
+        return output;
+    }
+
     fs::path ResolveInputPath(const std::string& input)
     {
         fs::path path(input);
@@ -437,60 +450,12 @@ namespace
         }
     }
 
-    void AppendProjectXml(tinyxml2::XMLDocument& doc, tinyxml2::XMLElement* parent, const ProjectEntry& project, const SolutionData& data)
+    void AppendProjectXml(tinyxml2::XMLDocument& doc, tinyxml2::XMLElement* parent, const ProjectEntry& project)
     {
         auto* projectElem = doc.NewElement("Project");
         projectElem->SetAttribute("Path", project.path.c_str());
-        projectElem->SetAttribute("Id", project.guid.c_str());
-
-        std::string filename = fs::path(project.path).stem().string();
-        if (!project.name.empty() && project.name != filename) {
-            projectElem->SetAttribute("DisplayName", project.name.c_str());
-        }
-
-        for (const auto& depGuid : project.dependencies) {
-            auto depIter = data.guidToPath.find(depGuid);
-            if (depIter == data.guidToPath.end()) {
-                continue;
-            }
-            auto* depElem = doc.NewElement("BuildDependency");
-            depElem->SetAttribute("Project", depIter->second.c_str());
-            projectElem->InsertEndChild(depElem);
-        }
-
-        for (const auto& [solutionConfig, mapping] : project.configMap) {
-            if (!mapping.hasActive) {
-                continue;
-            }
-
-            if (!mapping.projectBuildType.empty()) {
-                auto* buildTypeElem = doc.NewElement("BuildType");
-                buildTypeElem->SetAttribute("Solution", solutionConfig.c_str());
-                buildTypeElem->SetAttribute("Project", mapping.projectBuildType.c_str());
-                projectElem->InsertEndChild(buildTypeElem);
-            }
-
-            if (!mapping.projectPlatform.empty()) {
-                auto* platformElem = doc.NewElement("Platform");
-                platformElem->SetAttribute("Solution", solutionConfig.c_str());
-                platformElem->SetAttribute("Project", mapping.projectPlatform.c_str());
-                projectElem->InsertEndChild(platformElem);
-            }
-
-            if (mapping.buildSet) {
-                auto* buildElem = doc.NewElement("Build");
-                buildElem->SetAttribute("Solution", solutionConfig.c_str());
-                buildElem->SetAttribute("Project", mapping.build ? "true" : "false");
-                projectElem->InsertEndChild(buildElem);
-            }
-
-            if (mapping.deploySet) {
-                auto* deployElem = doc.NewElement("Deploy");
-                deployElem->SetAttribute("Solution", solutionConfig.c_str());
-                deployElem->SetAttribute("Project", mapping.deploy ? "true" : "false");
-                projectElem->InsertEndChild(deployElem);
-            }
-        }
+        auto normalizedGuid = NormalizeGuidForSlnx(project.guid);
+        projectElem->SetAttribute("Id", normalizedGuid.c_str());
 
         parent->InsertEndChild(projectElem);
     }
@@ -498,63 +463,16 @@ namespace
     void WriteSlnx(const fs::path& outputPath, const SolutionData& data)
     {
         tinyxml2::XMLDocument doc;
-        doc.InsertEndChild(doc.NewDeclaration());
 
         auto* root = doc.NewElement("Solution");
         doc.InsertEndChild(root);
 
         AppendBuildTypesAndPlatforms(doc, root, data);
-
-        std::unordered_map<std::string, std::string>                      folderPathCache;
-        std::unordered_map<std::string, bool>                             visiting;
-        std::unordered_map<std::string, std::vector<const ProjectEntry*>> projectsByFolder;
-        std::unordered_map<std::string, const ProjectEntry*>              folderEntries;
-
         for (const auto& project : data.projects) {
             if (project.isSolutionFolder) {
-                folderEntries[project.guid] = &project;
                 continue;
             }
-            auto nestedIter = data.nestedProjects.find(project.guid);
-            if (nestedIter != data.nestedProjects.end()) {
-                std::string folderPath = ResolveFolderPath(nestedIter->second, data, folderPathCache, visiting);
-                projectsByFolder[folderPath].push_back(&project);
-            } else {
-                projectsByFolder["/"].push_back(&project);
-            }
-        }
-
-        std::map<std::string, std::vector<std::string>> filesByFolder;
-        for (const auto& [guid, folderProject] : folderEntries) {
-            std::string folderPath    = ResolveFolderPath(guid, data, folderPathCache, visiting);
-            filesByFolder[folderPath] = folderProject->solutionItems;
-        }
-
-        for (const auto& [folderPath, files] : filesByFolder) {
-            auto* folderElem = doc.NewElement("Folder");
-            folderElem->SetAttribute("Name", folderPath.c_str());
-
-            for (const auto& filePath : files) {
-                auto* fileElem = doc.NewElement("File");
-                fileElem->SetAttribute("Path", filePath.c_str());
-                folderElem->InsertEndChild(fileElem);
-            }
-
-            auto projIter = projectsByFolder.find(folderPath);
-            if (projIter != projectsByFolder.end()) {
-                for (const auto* project : projIter->second) {
-                    AppendProjectXml(doc, folderElem, *project, data);
-                }
-            }
-
-            root->InsertEndChild(folderElem);
-        }
-
-        auto rootProjectsIter = projectsByFolder.find("/");
-        if (rootProjectsIter != projectsByFolder.end()) {
-            for (const auto* project : rootProjectsIter->second) {
-                AppendProjectXml(doc, root, *project, data);
-            }
+            AppendProjectXml(doc, root, project);
         }
 
         if (doc.SaveFile(outputPath.string().c_str()) != tinyxml2::XML_SUCCESS) {
